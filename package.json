@@ -1,0 +1,29 @@
+{
+  "name": "devspeak",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Free, no-signup practice for technical English and remote job interviews.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "deploy": "cf deploy"
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.86",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "beta",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "cf": "^1.0.0-beta.18",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}
