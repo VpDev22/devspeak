@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AI_MODELS, aiFeedback, changedFacts, hasWebGPU, loadAI, loadedAIModel, type AIModelId } from '../lib/ai';
+import { AI_MODELS, aiFeedback, changedFacts, cleanReply, hasWebGPU, loadAI, loadedAIModel, type AIModelId } from '../lib/ai';
 import { updateProgress, useProgress } from '../lib/storage';
 import { MiniMarkdown } from './ui';
 
@@ -14,6 +14,8 @@ export function AIFeedback({ context, answer }: { context: string; answer: strin
   const [loadPct, setLoadPct] = useState(0);
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
+  const [removed, setRemoved] = useState(0);
+  const [usedModel, setUsedModel] = useState('');
 
   if (!hasWebGPU()) {
     return <p className="note">✨ La retroalimentación con IA local necesita WebGPU (Chrome o Edge recientes en computadora). La revisión automática de arriba sí funciona aquí.</p>;
@@ -21,14 +23,18 @@ export function AIFeedback({ context, answer }: { context: string; answer: strin
 
   const run = async () => {
     if (!answer.trim()) return;
-    setError(''); setResult('');
+    setError(''); setResult(''); setRemoved(0);
     try {
       if (loadedAIModel() !== model) {
         setStatus('loading');
         await loadAI(model, r => { setLoadPct(r.progress); setLoadText(r.text); });
       }
       setStatus('thinking');
-      await aiFeedback(context, answer, setResult);
+      setUsedModel(AI_MODELS.find(m => m.id === model)?.label ?? model);
+      const raw = await aiFeedback(context, answer, setResult);
+      const cleaned = cleanReply(answer, raw);
+      setResult(cleaned.text);
+      setRemoved(cleaned.removed);
       setStatus('done');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -65,7 +71,8 @@ export function AIFeedback({ context, answer }: { context: string; answer: strin
           ⚠️ La IA cambió o quitó: <b>{changedFacts(answer, result).join(', ')}</b>. Es un error de la IA: tus datos (nombres, lugares, empresas) no se corrigen. Ignora esa parte.
         </p>
       )}
-      {status === 'done' && <p className="muted small">La IA local es pequeña y a veces se equivoca. Si algo no te cuadra, confía en la revisión automática de arriba.</p>}
+      {status === 'done' && removed > 0 && <p className="muted small">🧹 Se ocultaron {removed} corrección{removed > 1 ? 'es' : ''} que la IA inventó (citaban texto que no escribiste o cambiaban tus datos).</p>}
+      {status === 'done' && <p className="muted small">Respondió: <b>{usedModel}</b>. La IA local es pequeña y a veces se equivoca; si algo no te cuadra, confía en la revisión automática de arriba.</p>}
       {error && <p className="note warn">No se pudo usar la IA local: {error}</p>}
     </div>
   );

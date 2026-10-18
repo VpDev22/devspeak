@@ -4,8 +4,9 @@ import type { MLCEngine, InitProgressReport } from '@mlc-ai/web-llm';
 // The library and the model are only downloaded when the learner asks for it.
 
 export const AI_MODELS = [
-  { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', label: 'Fast', size: '~1 GB' },
-  { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', label: 'Better', size: '~2 GB' },
+  { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', label: 'Fast · Qwen 1.5B', size: '~1 GB' },
+  { id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC', label: 'Better · Qwen 3B', size: '~2 GB' },
+  { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', label: 'Better · Llama 3B', size: '~2 GB' },
 ] as const;
 export type AIModelId = (typeof AI_MODELS)[number]['id'];
 
@@ -48,16 +49,18 @@ Reply in exactly this format (markdown):
 **Tip:** <one short tip in Spanish to sound more natural or professional>`;
 
 // One worked example: small models follow a demonstrated format far better than a described one.
-const EXAMPLE_USER = `Interview question: "Where are you from?"
+// It deliberately contains no names or places, because small models tend to copy them into their answer.
+const EXAMPLE_USER = `Interview question: "What do you do in your current job?"
 
-Student's answer: "i am from mexico, i live in Guasave near to Los Mochis"`;
-const EXAMPLE_ASSISTANT = `**Corrected:** I'm from Mexico. I live in Guasave, near Los Mochis.
+Student's answer: "i am backend developer, i make APIs and fix bugs since 2 years. i like a lot my job"`;
+const EXAMPLE_ASSISTANT = `**Corrected:** I'm a backend developer. I've been building APIs and fixing bugs for two years. I really like my job.
 
 **Errores:**
-- "i am" → "I'm": "I" siempre va en mayúscula y la contracción suena más natural.
-- "near to Los Mochis" → "near Los Mochis": en inglés "near" no lleva "to".
+- "i am backend developer" → "I'm a backend developer": las profesiones llevan "a".
+- "since 2 years" → "for two years": para duraciones se usa "for", no "since".
+- "i like a lot my job" → "I really like my job": "a lot" no va antes del objeto.
 
-**Tip:** Separa las ideas completas con punto en vez de coma.`;
+**Tip:** Para software usa "build" en vez de "make": suena más profesional.`;
 
 /** Removes anything a small model may append after the Tip (e.g. an invented "Final Answer" section). */
 function trimExtras(text: string): string {
@@ -120,4 +123,33 @@ function properNouns(text: string): string[] {
     if (!startsSentence && !NOT_NAMES.has(plain(word).replace(/'/g, ''))) found.push(word);
   }
   return found;
+}
+
+const normalize = (s: string) => plain(s).replace(/[^a-z0-9'\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * Drops "wrong → fix" bullets the model made up: the quoted mistake is not in the learner's answer,
+ * the fix is identical, or the fix removes one of the learner's names.
+ */
+export function cleanReply(answer: string, reply: string): { text: string; removed: number } {
+  const said = normalize(answer);
+  const names = properNouns(answer);
+  let removed = 0;
+  const lines = reply.split('\n').filter(line => {
+    const m = line.match(/^\s*[-*]\s*"([^"]+)"\s*→\s*"([^"]+)"/);
+    if (!m) return true;
+    const [, wrong, right] = m;
+    const invented = !said.includes(normalize(wrong));
+    const noChange = normalize(wrong) === normalize(right);
+    const dropsName = names.some(n => plain(wrong).includes(plain(n)) && !plain(right).includes(plain(n)));
+    if (invented || noChange || dropsName) { removed++; return false; }
+    return true;
+  });
+  let text = lines.join('\n');
+  // if every bullet was dropped, say so instead of leaving an empty section
+  const errores = text.split(/\*\*Tip/i)[0].split(/\*\*Errores:?\*\*/i)[1] ?? '';
+  if (removed && !/^\s*[-*]\s+/m.test(errores)) {
+    text = text.replace(/(\*\*Errores:?\*\*)/i, '$1\n- Ninguno confiable. Revisa la revisión automática de arriba.');
+  }
+  return { text, removed };
 }
