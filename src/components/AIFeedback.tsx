@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AI_MODELS, aiFeedback, hasWebGPU, loadAI, loadedAIModel, type AIModelId } from '../lib/ai';
+import { AI_MODELS, aiFeedback, changedFacts, hasWebGPU, loadAI, loadedAIModel, type AIModelId } from '../lib/ai';
 import { updateProgress, useProgress } from '../lib/storage';
 import { MiniMarkdown } from './ui';
 
@@ -60,6 +60,12 @@ export function AIFeedback({ context, answer }: { context: string; answer: strin
         </div>
       )}
       {result && <MiniMarkdown text={result} />}
+      {status === 'done' && changedFacts(answer, result).length > 0 && (
+        <p className="note warn">
+          ⚠️ La IA cambió o quitó: <b>{changedFacts(answer, result).join(', ')}</b>. Es un error de la IA: tus datos (nombres, lugares, empresas) no se corrigen. Ignora esa parte.
+        </p>
+      )}
+      {status === 'done' && <p className="muted small">La IA local es pequeña y a veces se equivoca. Si algo no te cuadra, confía en la revisión automática de arriba.</p>}
       {error && <p className="note warn">No se pudo usar la IA local: {error}</p>}
     </div>
   );
