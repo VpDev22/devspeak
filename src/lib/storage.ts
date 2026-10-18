@@ -2,8 +2,19 @@ import { useSyncExternalStore } from 'react';
 
 // All progress lives in the learner's browser. No accounts, no server.
 
+export interface SavedAnswer {
+  answer: string;
+  score: number;
+  /** Epoch milliseconds. */
+  at: number;
+  spoken: boolean;
+}
+
+/** How many past answers we keep per interview question. */
+export const MAX_SAVED_ANSWERS = 10;
+
 export interface Progress {
-  interview: Record<string, { attempts: number; best: number; lastAnswer?: string }>;
+  interview: Record<string, { attempts: number; best: number; lastAnswer?: string; history?: SavedAnswer[] }>;
   ladder: Record<string, number[]>;
   pron: Record<string, { tries: number; hits: number }>;
   remote: Record<string, boolean>;

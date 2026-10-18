@@ -4,7 +4,7 @@ import type { InterviewCategory, InterviewQuestion, Level } from '../data/types'
 import { keywordCoverage } from '../lib/compare';
 import { findIssues, speechStats } from '../lib/feedback';
 import { go, href } from '../lib/router';
-import { updateProgress, useProgress } from '../lib/storage';
+import { MAX_SAVED_ANSWERS, updateProgress, useProgress, type SavedAnswer } from '../lib/storage';
 import { AIFeedback } from '../components/AIFeedback';
 import { Badge, Card, IssueList, ListenButton, Reveal, Score, SpeakBox } from '../components/ui';
 
@@ -126,7 +126,10 @@ function QuestionSession({ q, position, nextLabel, onNext }: { q: InterviewQuest
     setResult({ score, issues, coverage, stats, parts: { grammar, answered, detail } });
     updateProgress(p => {
       const prev = p.interview[q.id];
-      p.interview[q.id] = { attempts: (prev?.attempts ?? 0) + 1, best: Math.max(prev?.best ?? 0, score), lastAnswer: answer };
+      const saved: SavedAnswer = { answer: answer.trim(), score, at: Date.now(), spoken: spokenMs > 0 };
+      // Checking the same text twice just refreshes it instead of adding a duplicate.
+      const history = [saved, ...(prev?.history ?? []).filter(h => h.answer !== saved.answer)].slice(0, MAX_SAVED_ANSWERS);
+      p.interview[q.id] = { attempts: (prev?.attempts ?? 0) + 1, best: Math.max(prev?.best ?? 0, score), lastAnswer: answer, history };
     });
   };
 
@@ -158,6 +161,8 @@ function QuestionSession({ q, position, nextLabel, onNext }: { q: InterviewQuest
           {!result && position && <button className="btn ghost" onClick={() => onNext(0)}>Skip</button>}
         </div>
       </Card>
+
+      <PastAnswers questionId={q.id} onUse={text => { setAnswer(text); setResult(null); setSpokenMs(0); }} />
 
       {result && (
         <Card className="feedback">
@@ -208,5 +213,47 @@ function QuestionSession({ q, position, nextLabel, onNext }: { q: InterviewQuest
         </Card>
       )}
     </div>
+  );
+}
+
+function PastAnswers({ questionId, onUse }: { questionId: string; onUse: (text: string) => void }) {
+  const progress = useProgress();
+  const saved = progress.interview[questionId];
+  // Answers saved before history existed only have `lastAnswer`.
+  const history: SavedAnswer[] = saved?.history ?? (saved?.lastAnswer ? [{ answer: saved.lastAnswer, score: saved.best, at: 0, spoken: false }] : []);
+  if (!history.length) return null;
+
+  const remove = (at: number, answer: string) => updateProgress(p => {
+    const entry = p.interview[questionId];
+    if (!entry) return;
+    entry.history = (entry.history ?? []).filter(h => !(h.at === at && h.answer === answer));
+    if (!entry.history.length) delete entry.lastAnswer;
+  }, false);
+
+  return (
+    <Card>
+      <details className="past" open={history.length <= 2}>
+        <summary><h2>Your previous answers ({history.length})</h2></summary>
+        <p className="muted small">Se guardan solo en este navegador (las últimas {MAX_SAVED_ANSWERS}). Compáralas para ver cómo vas mejorando.</p>
+        <ul className="past-list">
+          {history.map(h => (
+            <li key={`${h.at}-${h.answer.slice(0, 20)}`}>
+              <div className="row between wrap">
+                <span className="muted small">
+                  {h.at ? new Date(h.at).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : 'Earlier'} · {h.spoken ? '🎤 spoken' : '⌨️ typed'}
+                </span>
+                <Badge tone={h.score >= 0.8 ? 'good' : h.score >= 0.5 ? 'warn' : 'default'}>{Math.round(h.score * 100)}/100</Badge>
+              </div>
+              <p className="past-text">{h.answer}</p>
+              <div className="row wrap">
+                <button className="btn sm" onClick={() => onUse(h.answer)}>✏️ Improve this answer</button>
+                <ListenButton text={h.answer} label="Listen" small />
+                <button className="btn ghost sm" onClick={() => remove(h.at, h.answer)}>Delete</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </details>
+    </Card>
   );
 }

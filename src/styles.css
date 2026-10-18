@@ -287,3 +287,13 @@ details.tip p { margin: 8px 0 2px; }
 .parts .ok b { color: var(--good); }
 .parts span { font-size: .82rem; color: var(--muted); }
 .verdict { font-weight: 600; }
+
+/* saved interview answers */
+.past summary { cursor: pointer; list-style: none; }
+.past summary::-webkit-details-marker { display: none; }
+.past summary h2 { display: inline; }
+.past summary::before { content: '▸ '; color: var(--muted); }
+.past[open] summary::before { content: '▾ '; }
+.past-list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 10px; }
+.past-list li { background: var(--surface-2); border-radius: 12px; padding: 12px 14px; }
+.past-text { margin: 8px 0; white-space: pre-wrap; }
