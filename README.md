@@ -41,8 +41,10 @@ Use desktop Chrome or Edge for speech recognition and WebGPU.
 
 The site is deployed as static assets on Cloudflare (Pages on Workers). The configuration lives in `cloudflare.config.ts`.
 
+Every push to `main` is built and deployed automatically by Cloudflare Workers Builds (type check, then `npm run deploy`). To deploy manually from your machine:
+
 ```bash
-cf deploy
+npm run deploy
 ```
 
 Live: https://devspeak.previewdev.workers.dev
